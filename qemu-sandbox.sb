@@ -1,0 +1,65 @@
+(version 1)
+(deny default)
+
+;; --------------------------------------------------------
+;; 1. Core Execution & Frameworks
+;; --------------------------------------------------------
+(allow process-exec* process-fork)
+(allow sysctl-read)
+(allow mach-lookup)
+(allow iokit-open)
+
+;; --------------------------------------------------------
+;; POSIX Shared Memory & IPC (Required for QEMU memfd emulation)
+;; --------------------------------------------------------
+(allow ipc-posix-shm)
+(allow ipc-posix-sem)
+
+;; --------------------------------------------------------
+;; 2. Network Restraints
+;; --------------------------------------------------------
+;; Only allow binding to localhost port 2222
+(allow network-bind (local ip "*:2222"))
+(allow network-inbound (local ip "*:2222"))
+
+(allow network-bind (local ip "*:8181"))
+(allow network-inbound (local ip "*:8181"))
+(allow network-outbound (remote ip "*:8181"))
+
+;; --------------------------------------------------------
+;; 3. File System: Read Access
+;; --------------------------------------------------------
+;; Allow reading system libraries and Homebrew binaries
+(allow file-read*)
+
+;; CRITICAL: Block all read access to user home directories
+(deny file-read* (subpath "/Users"))
+
+;; Except for the specific directory containing the VM files
+;; (Replace this path with your actual working directory)
+(allow file-read* (subpath "/Users/agents/Documents/qemu"))
+
+;; --------------------------------------------------------
+;; 4. File System: Write Access
+;; --------------------------------------------------------
+;; Explicitly deny all writes by default
+(deny file-write*)
+
+;; Allow write access to standard devices for QEMU lock probing
+(allow file-write*
+    (literal "/dev/null")
+    (literal "/dev/zero")
+)
+
+;; Allow writing only to the VM directory (for the .qcow2 or temp overlay)
+(allow file-write* (subpath "/Users/agents/Documents/qemu"))
+
+;; Allow writing to macOS temporary and shared memory directories
+(allow file-write* 
+    (subpath "/tmp")
+    (subpath "/private/tmp")
+    (subpath "/var/folders")
+    (subpath "/private/var/folders")
+    (subpath "/var/tmp")
+    (subpath "/private/var/tmp")
+)
