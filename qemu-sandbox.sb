@@ -37,7 +37,7 @@
 
 ;; Except for the specific directory containing the VM files
 ;; (Replace this path with your actual working directory)
-(allow file-read* (subpath "/Users/agents/Documents/qemu"))
+(allow file-read* (subpath "/Users/luke/Documents/activeProjects/agentSandbox"))
 
 ;; --------------------------------------------------------
 ;; 4. File System: Write Access
@@ -52,7 +52,7 @@
 )
 
 ;; Allow writing only to the VM directory (for the .qcow2 or temp overlay)
-(allow file-write* (subpath "/Users/agents/Documents/qemu"))
+(allow file-write* (subpath "/Users/luke/Documents/activeProjects/agentSandbox"))
 
 ;; Allow writing to macOS temporary and shared memory directories
 (allow file-write* 

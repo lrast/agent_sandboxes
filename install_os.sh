@@ -23,8 +23,8 @@ autoinstall:
     username: bot
     password: "${PASS_HASH}"
   ssh:
-    install-server: yes
-    allow-pw: yes
+    install-server: true
+    allow-pw: true
   # This block gets passed to the final OS and runs on its VERY FIRST boot
   user-data:
     runcmd:
@@ -34,7 +34,12 @@ autoinstall:
       - echo '/dev/vdb /home/bot/state ext4 defaults 0 2' >> /etc/fstab
       - mount -a
       - chown -R bot:bot /home/bot/state
+      
 EOF
+
+# remove noexec if the agent needs to run things off the state disk
+
+
 
 # 2. Package the configuration into an ISO (using macOS native hdiutil)
 echo "==> Creating seed.iso..."
@@ -46,8 +51,7 @@ echo "==> Preparing disks..."
 [ -f state_disk.qcow2 ] || qemu-img create -f qcow2 state_disk.qcow2 10G
 
 # 4. Run the installer headlessly
-echo "==> Starting headless installation..."
-echo "    The installer is running in the background."
+echo "==> Starting (almost headless) installation..."
 echo "    This usually takes 5 to 10 minutes."
 echo "    QEMU will automatically exit when the installation is finished."
 
@@ -67,6 +71,11 @@ qemu-system-aarch64 \
   -drive file=state_disk.qcow2,format=qcow2,if=virtio \
   -cdrom ubuntu-26.04.1-live-server-arm64.iso \
   -drive file=seed.iso,format=raw,if=virtio \
+  -netdev user,id=net0 \
+  -device virtio-net-pci,netdev=net0 \
   -no-reboot
 
+echo "==> Cleanup."
+rm -r cidata
+rm seed.iso
 echo "==> Installation complete! You can now run your sandbox-exec command."

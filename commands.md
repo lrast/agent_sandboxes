@@ -57,7 +57,7 @@ sandbox-exec -f qemu-sandbox.sb qemu-system-aarch64 \
   -drive file=state_disk.qcow2,if=virtio\
   -netdev user,id=net0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22,hostfwd=tcp:127.0.0.1:8181-:8181 \
   -device virtio-net-pci,netdev=net0 \
-  -display none \
+  -display none -monitor none -serial none
   -daemonize
 
 
