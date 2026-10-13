@@ -24,32 +24,16 @@
 
 
 ;; --------------------------------------------------------
-;; 3. File System: Read Access
+;; 3. File System:
 ;; --------------------------------------------------------
-;; Allow reading system libraries and Homebrew binaries
+;; Default allow read, prevent write. There are too many files to include in read
 (allow file-read*)
-
-;; CRITICAL: Block all read access to user home directories
-(deny file-read* (subpath "/Users"))
-
-;; Except for the specific directory containing the VM files
-;; (Replace this path with your actual working directory)
-(allow file-read* (subpath "/Users/luke/Documents/activeProjects/agentSandbox"))
-
-;; --------------------------------------------------------
-;; 4. File System: Write Access
-;; --------------------------------------------------------
-;; Explicitly deny all writes by default
 (deny file-write*)
 
-;; Allow write access to standard devices for QEMU lock probing
-(allow file-write*
-    (literal "/dev/null")
-    (literal "/dev/zero")
-)
-
-;; Allow writing only to the VM directory (for the .qcow2 or temp overlay)
-(allow file-write* (subpath "/Users/luke/Documents/activeProjects/agentSandbox"))
+;; Block all read access to user home directories
+(deny file-read* (subpath "/Users"))
+(deny file-read* (subpath "/Volumes"))
+(deny file-read* (subpath "/private/db"))
 
 ;; Allow writing to macOS temporary and shared memory directories
 (allow file-write* 
@@ -59,4 +43,23 @@
     (subpath "/private/var/folders")
     (subpath "/var/tmp")
     (subpath "/private/var/tmp")
-)
+    )
+
+(allow file-write* 
+    (literal "/dev/null")
+    (literal "/dev/zero")
+    (literal "/dev/urandom")
+    (literal "/dev/random")
+    (literal "/dev/hvf"))
+
+
+;; VM disks
+(allow file-read* 
+    (subpath "/Users/luke/Documents/activeProjects/agentSandbox/disks")
+    (literal "/Users/luke/Documents/activeProjects/agentSandbox/disks/state_disk.qcow2"))
+
+(allow file-write* 
+    (literal "/Users/luke/Documents/activeProjects/agentSandbox/disks/state_disk.qcow2"))
+
+
+
