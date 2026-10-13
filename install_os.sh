@@ -22,6 +22,7 @@ autoinstall:
     hostname: ubuntu-vm
     username: bot
     password: "${PASS_HASH}"
+    groups: []
   ssh:
     install-server: true
     allow-pw: true
@@ -47,8 +48,10 @@ hdiutil makehybrid -iso -joliet -default-volume-name cidata -o seed.iso cidata/ 
 
 # 3. Create the disks (if they don't already exist)
 echo "==> Preparing disks..."
-[ -f os_base.qcow2 ] || qemu-img create -f qcow2 os_base.qcow2 12G
-[ -f state_disk.qcow2 ] || qemu-img create -f qcow2 state_disk.qcow2 10G
+mkdir -p disks
+
+[ -f os_base.qcow2 ] || qemu-img create -f qcow2 disks/os_base.qcow2 12G
+[ -f state_disk.qcow2 ] || qemu-img create -f qcow2 disks/state_disk.qcow2 10G
 
 # 4. Run the installer headlessly
 echo "==> Starting (almost headless) installation..."
@@ -67,8 +70,8 @@ qemu-system-aarch64 \
   -device qemu-xhci \
   -device usb-kbd \
   -device usb-tablet \
-  -drive file=os_base.qcow2,format=qcow2,if=virtio \
-  -drive file=state_disk.qcow2,format=qcow2,if=virtio \
+  -drive file=disks/os_base.qcow2,format=qcow2,if=virtio \
+  -drive file=disks/state_disk.qcow2,format=qcow2,if=virtio \
   -cdrom ubuntu-26.04.1-live-server-arm64.iso \
   -drive file=seed.iso,format=raw,if=virtio \
   -netdev user,id=net0 \

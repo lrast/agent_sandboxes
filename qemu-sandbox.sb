@@ -22,9 +22,6 @@
 (allow network-bind (local ip "*:2222"))
 (allow network-inbound (local ip "*:2222"))
 
-(allow network-bind (local ip "*:8181"))
-(allow network-inbound (local ip "*:8181"))
-(allow network-outbound (remote ip "*:8181"))
 
 ;; --------------------------------------------------------
 ;; 3. File System: Read Access
