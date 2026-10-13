@@ -48,15 +48,15 @@
 
 ;; VM disks
 (allow file-read* 
-    (subpath "/Users/luke/Documents/activeProjects/agentSandbox/disks")
+    (subpath "/Users/luke/Documents/activeProjects/localAgents/agentSandbox/disks")
     )
 
 (allow file-write* 
-    (literal "/Users/luke/Documents/activeProjects/agentSandbox/disks/state_disk.qcow2"))
+    (literal "/Users/luke/Documents/activeProjects/localAgents/agentSandbox/disks/state_disk.qcow2"))
 
 ;; Temp dir for qemu snapshot=on overlay (start_vm.sh sets TMPDIR to this)
 (allow file-read* file-write*
-    (subpath "/Users/luke/Documents/activeProjects/agentSandbox/disks/tmp"))
+    (subpath "/Users/luke/Documents/activeProjects/localAgents/agentSandbox/disks/tmp"))
 
 
 ;; dyld aborts without read of the root directory itself (found by bisecting)
