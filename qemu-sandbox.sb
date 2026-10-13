@@ -4,7 +4,12 @@
 ;; --------------------------------------------------------
 ;; 1. Core Execution & Frameworks
 ;; --------------------------------------------------------
-(allow process-exec* process-fork)
+;; Only the qemu binary may be exec'd (no /bin/sh, curl, etc. after an escape).
+;; fork is kept for -daemonize.
+(allow process-exec
+    (literal "/opt/homebrew/bin/qemu-system-aarch64")
+    (subpath "/opt/homebrew/Cellar/qemu"))
+(allow process-fork)
 (allow sysctl-read)
 
 (allow mach-lookup
@@ -103,6 +108,7 @@
     (literal "/dev/null")
     (literal "/dev/zero")
     (literal "/dev/urandom")
-    (literal "/dev/random")
-    (literal "/dev/hvf"))
+    (literal "/dev/random"))
+;; /dev/hvf write rule removed (not needed on Apple Silicon). If HVF fails to
+;; start, restore: (allow file-write* (literal "/dev/hvf"))
 

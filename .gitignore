@@ -1,2 +1,5 @@
 .DS_Store
-disks/tmp/
+disks/
+keys/
+cidata/
+*.iso
