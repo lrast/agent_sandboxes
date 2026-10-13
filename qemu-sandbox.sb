@@ -6,8 +6,12 @@
 ;; --------------------------------------------------------
 (allow process-exec* process-fork)
 (allow sysctl-read)
-(allow mach-lookup)
-(allow iokit-open)
+
+(allow mach-lookup
+    (global-name "com.apple.logd")
+    (global-name "com.apple.cfprefsd.daemon")
+    (global-name "com.apple.system.notification_center")
+    )
 
 ;; --------------------------------------------------------
 ;; POSIX Shared Memory & IPC (Required for QEMU memfd emulation)
@@ -19,8 +23,8 @@
 ;; 2. Network Restraints
 ;; --------------------------------------------------------
 ;; Only allow binding to localhost port 2222
-(allow network-bind (local ip "*:2222"))
-(allow network-inbound (local ip "*:2222"))
+(allow network-bind (local ip "localhost:2222"))
+(allow network-inbound (local ip "localhost:2222"))
 
 
 ;; --------------------------------------------------------

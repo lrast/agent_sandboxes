@@ -29,8 +29,7 @@ autoinstall:
       # Check if /dev/vdb is already formatted; if not, format it
       - blkid /dev/vdb || mkfs.ext4 /dev/vdb
       - mkdir -p /home/bot/state
-      - echo '/dev/vdb /home/bot/state ext4 defaults 0 2' >> /etc/fstab
+      # remove noexec if the agent needs to run things off the state disk
+      - echo '/dev/vdb /home/bot/state ext4 defaults,nosuid,nodev,noexec 0 2' >> /etc/fstab
       - mount -a
       - chown -R bot:bot /home/bot/state
-
-      # remove noexec if the agent needs to run things off the state disk
