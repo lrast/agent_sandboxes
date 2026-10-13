@@ -26,10 +26,19 @@ autoinstall:
         ssh_authorized_keys:
           - __BOT_SSH_KEY__
     runcmd:
-      # Check if /dev/vdb is already formatted; if not, format it
-      - blkid /dev/vdb || mkfs.ext4 /dev/vdb
-      - mkdir -p /home/bot/state
-      # remove noexec if the agent needs to run things off the state disk
-      - echo '/dev/vdb /home/bot/state ext4 defaults,nosuid,nodev,noexec 0 2' >> /etc/fstab
-      - mount -a
-      - chown -R bot:bot /home/bot/state
+      # Format /dev/vdb only if blank; abort if it holds a non-ext4 filesystem.
+      # Single script so set -e stops the mount steps too.
+      - |
+        set -e
+        fstype=$(blkid -o value -s TYPE /dev/vdb 2>/dev/null || true)
+        if [ -z "$fstype" ]; then
+          mkfs.ext4 /dev/vdb
+        elif [ "$fstype" != "ext4" ]; then
+          echo "ERROR: /dev/vdb has unexpected filesystem '$fstype'; refusing to continue" >&2
+          exit 1
+        fi
+        mkdir -p /home/bot/state
+        # remove noexec if the agent needs to run things off the state disk
+        echo '/dev/vdb /home/bot/state ext4 defaults,nosuid,nodev,noexec 0 2' >> /etc/fstab
+        mount -a
+        chown -R bot:bot /home/bot/state

@@ -1,3 +1,15 @@
+# qemu puts the snapshot=on overlay in $TMPDIR; keep it inside the sandbox-allowed disks/tmp
+export TMPDIR="$(pwd)/disks/tmp"
+mkdir -p "$TMPDIR"
+
+# Precaution: remove stale qemu temp files (snapshot overlays vl.* and guest-RAM
+# backing files memfd-*) left by a crashed/killed previous run, so old guest disk
+# and memory contents don't linger on the host. Skipped if a VM is already running,
+# so a live VM's files are never deleted.
+if ! pgrep -qf qemu-system-aarch64; then
+  rm -f "$TMPDIR"/vl.* "$TMPDIR"/memfd-*
+fi
+
 sandbox-exec -f qemu-sandbox.sb qemu-system-aarch64 \
   -accel hvf \
   -cpu host \

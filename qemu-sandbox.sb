@@ -30,25 +30,75 @@
 ;; --------------------------------------------------------
 ;; 3. File System:
 ;; --------------------------------------------------------
-;; Default allow read, prevent write. There are too many files to include in read
-(allow file-read*)
+;; Minimal allowlist
+(deny file-read*)
 (deny file-write*)
 
+
 ;; Block all read access to user home directories
+;; redundent with deny default
 (deny file-read* (subpath "/Users"))
 (deny file-read* (subpath "/Volumes"))
 (deny file-read* (subpath "/private/db"))
 
-;; Allow writing to macOS temporary and shared memory directories
-(allow file-write* 
-    (subpath "/tmp")
-    (subpath "/private/tmp")
-    (subpath "/var/folders")
-    (subpath "/private/var/folders")
-    (subpath "/var/tmp")
-    (subpath "/private/var/tmp")
+;; VM disks
+(allow file-read* 
+    (subpath "/Users/luke/Documents/activeProjects/agentSandbox/disks")
     )
 
+(allow file-write* 
+    (literal "/Users/luke/Documents/activeProjects/agentSandbox/disks/state_disk.qcow2"))
+
+;; Temp dir for qemu snapshot=on overlay (start_vm.sh sets TMPDIR to this)
+(allow file-read* file-write*
+    (subpath "/Users/luke/Documents/activeProjects/agentSandbox/disks/tmp"))
+
+
+;; dyld aborts without read of the root directory itself (found by bisecting)
+(allow file-read* (literal "/"))
+
+;; dyld shared cache, system libs, frameworks
+(allow file-read*
+    (subpath "/usr/lib")
+    (subpath "/System/Library")
+    (subpath "/System/Cryptexes")
+    (subpath "/System/Volumes/Preboot/Cryptexes")
+    (subpath "/private/preboot/Cryptexes")
+    (subpath "/Library/Apple/System/Library")
+    (subpath "/private/var/db/dyld")
+    (literal "/dev/null")
+    (literal "/dev/zero")
+    (literal "/dev/urandom")
+    (literal "/dev/random")
+    (subpath "/dev/fd"))
+
+;; Timezone / resolver / misc config read at startup
+(allow file-read*
+    (literal "/private/etc/localtime")
+    (subpath "/var/db/timezone")
+    (subpath "/private/var/db/timezone")
+    (literal "/private/etc/resolv.conf")
+    (literal "/private/etc/hosts")
+    (literal "/private/etc/passwd")
+    (literal "/private/etc/services"))
+
+;; QEMU binary, Homebrew dylibs, firmware
+(allow file-read*
+    (subpath "/opt/homebrew/Cellar")   ;; qemu + all transitive dylib deps (package files only)
+    (subpath "/opt/homebrew/opt")      ;; version-stable symlinks into Cellar
+    (subpath "/opt/homebrew/share/qemu")
+    )
+
+;; Metadata (stat/readlink) allowlist. Found by pruning: only the path to the qemu
+;; launcher is needed (sandbox-exec stats it to exec). Everything else resolves via
+;; the read rules below.
+(allow file-read-metadata
+    (literal "/opt")
+    (literal "/opt/homebrew")
+    (literal "/opt/homebrew/bin")
+    (literal "/opt/homebrew/bin/qemu-system-aarch64"))
+
+;; minimal writes
 (allow file-write* 
     (literal "/dev/null")
     (literal "/dev/zero")
@@ -56,11 +106,3 @@
     (literal "/dev/random")
     (literal "/dev/hvf"))
 
-
-;; VM disks
-(allow file-read* 
-    (subpath "/Users/luke/Documents/activeProjects/agentSandbox/disks")
-    (literal "/Users/luke/Documents/activeProjects/agentSandbox/disks/state_disk.qcow2"))
-
-(allow file-write* 
-    (literal "/Users/luke/Documents/activeProjects/agentSandbox/disks/state_disk.qcow2"))
