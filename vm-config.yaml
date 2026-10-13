@@ -1,0 +1,36 @@
+#cloud-config
+# The SSH key placeholders below are filled in by install_os.sh from local .pub files.
+autoinstall:
+  version: 1
+  # No "identity" section: both accounts are defined below via user-data.
+  ssh:
+    install-server: true
+    allow-pw: false
+  # This block gets passed to the final OS and runs on its VERY FIRST boot
+  user-data:
+    hostname: ubuntu-vm
+    ssh_pwauth: false
+    users:
+      # Admin account: key-only login, passwordless sudo
+      - name: vm_admin
+        shell: /bin/bash
+        lock_passwd: true
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        ssh_authorized_keys:
+          - __ADMIN_SSH_KEY__
+      # Unprivileged agent account: key-only login, no sudo
+      - name: bot
+        shell: /bin/bash
+        lock_passwd: true
+        sudo: false
+        ssh_authorized_keys:
+          - __BOT_SSH_KEY__
+    runcmd:
+      # Check if /dev/vdb is already formatted; if not, format it
+      - blkid /dev/vdb || mkfs.ext4 /dev/vdb
+      - mkdir -p /home/bot/state
+      - echo '/dev/vdb /home/bot/state ext4 defaults 0 2' >> /etc/fstab
+      - mount -a
+      - chown -R bot:bot /home/bot/state
+
+      # remove noexec if the agent needs to run things off the state disk

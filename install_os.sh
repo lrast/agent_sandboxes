@@ -9,49 +9,29 @@ instance-id: ubuntu-vm
 local-hostname: ubuntu-vm
 EOF
 
-# Generate a SHA-512 password hash for the user "bot"
-# (Default password will be "bot")
-PASS_HASH=$(openssl passwd -6 bot)
+# SSH public keys to authorize (override via environment variables)
+ADMIN_KEY_FILE="${ADMIN_KEY_FILE:-keys/adminkey.pub}"
+BOT_KEY_FILE="${BOT_KEY_FILE:-keys/vmkey.pub}"
 
-# Create the user-data configuration
-cat << EOF > cidata/user-data
-#cloud-config
-autoinstall:
-  version: 1
-  identity:
-    hostname: ubuntu-vm
-    username: bot
-    password: "${PASS_HASH}"
-    groups: []
-  ssh:
-    install-server: true
-    allow-pw: true
-  # This block gets passed to the final OS and runs on its VERY FIRST boot
-  user-data:
-    runcmd:
-      # Check if /dev/vdb is already formatted; if not, format it
-      - blkid /dev/vdb || mkfs.ext4 /dev/vdb
-      - mkdir -p /home/bot/state
-      - echo '/dev/vdb /home/bot/state ext4 defaults 0 2' >> /etc/fstab
-      - mount -a
-      - chown -R bot:bot /home/bot/state
-      
-EOF
+ADMIN_KEY=$(head -n 1 "$ADMIN_KEY_FILE")
+BOT_KEY=$(head -n 1 "$BOT_KEY_FILE")
 
-# remove noexec if the agent needs to run things off the state disk
-
-
+# The user-data (#cloud-config) lives in vm-config.yaml; inject the keys
+sed -e "s|__ADMIN_SSH_KEY__|${ADMIN_KEY}|" \
+    -e "s|__BOT_SSH_KEY__|${BOT_KEY}|" \
+    vm-config.yaml > cidata/user-data
 
 # 2. Package the configuration into an ISO (using macOS native hdiutil)
 echo "==> Creating seed.iso..."
-hdiutil makehybrid -iso -joliet -default-volume-name cidata -o seed.iso cidata/ > /dev/null
+rm -f disks/seed.iso
+hdiutil makehybrid -iso -joliet -default-volume-name cidata -o disks/seed.iso cidata/ > /dev/null
 
 # 3. Create the disks (if they don't already exist)
 echo "==> Preparing disks..."
 mkdir -p disks
 
-[ -f os_base.qcow2 ] || qemu-img create -f qcow2 disks/os_base.qcow2 12G
-[ -f state_disk.qcow2 ] || qemu-img create -f qcow2 disks/state_disk.qcow2 10G
+[ -f disks/os_base.qcow2 ] || qemu-img create -f qcow2 disks/os_base.qcow2 12G
+[ -f disks/state_disk.qcow2 ] || qemu-img create -f qcow2 disks/state_disk.qcow2 10G
 
 # 4. Run the installer headlessly
 echo "==> Starting (almost headless) installation..."
@@ -73,12 +53,12 @@ qemu-system-aarch64 \
   -drive file=disks/os_base.qcow2,format=qcow2,if=virtio \
   -drive file=disks/state_disk.qcow2,format=qcow2,if=virtio \
   -cdrom ubuntu-26.04.1-live-server-arm64.iso \
-  -drive file=seed.iso,format=raw,if=virtio \
+  -drive file=disks/seed.iso,format=raw,if=virtio \
   -netdev user,id=net0 \
   -device virtio-net-pci,netdev=net0 \
   -no-reboot
 
 echo "==> Cleanup."
 rm -r cidata
-rm seed.iso
+rm disks/seed.iso
 echo "==> Installation complete! You can now run your sandbox-exec command."

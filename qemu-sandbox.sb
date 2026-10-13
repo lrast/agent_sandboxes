@@ -60,6 +60,3 @@
 
 (allow file-write* 
     (literal "/Users/luke/Documents/activeProjects/agentSandbox/disks/state_disk.qcow2"))
-
-
-
