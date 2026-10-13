@@ -6,6 +6,30 @@ autoinstall:
   ssh:
     install-server: true
     allow-pw: false
+  # Installed by the installer into the new system (needs network only during install).
+  packages:
+    - python3
+    - python3-pip
+    - python3-venv
+  # Runs at install time in the installer environment; /target is the new system.
+  # uv is downloaded by the installer's curl straight into the target's /usr/local/bin.
+  late-commands:
+    - curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/target/usr/local/bin UV_NO_MODIFY_PATH=1 sh
+    # Lines starting with "#@agent#" are only kept when install_os.sh is run with
+    # --claude / --hermes (marker stripped); otherwise they are deleted.
+    # Agent installer (URL injected by install_os.sh).
+    # Downloaded in the installer, then run inside the target chroot as root with
+    # HOME=/opt/agent so it lands in a system-wide location (the bot user doesn't
+    # exist yet; cloud-init creates it on first boot).
+#@agent#    - mkdir -p /target/opt/agent
+#@agent#    - curl -fsSL '__AGENT_INSTALL_URL__' -o /target/tmp/agent-install.sh
+#@agent#    - curtin in-target --target=/target -- env HOME=/opt/agent bash -c 'umask 022 && bash /tmp/agent-install.sh'
+#@agent#    - rm -f /target/tmp/agent-install.sh
+#@agent#    - chmod -R a+rX /target/opt/agent
+#@agent#    - |
+#@agent#      cat > /target/etc/profile.d/agent.sh <<'PROFILE'
+#@agent#      export PATH="/opt/agent/.local/bin:/opt/agent/bin:$PATH"
+#@agent#      PROFILE
   # This block gets passed to the final OS and runs on its VERY FIRST boot
   user-data:
     hostname: ubuntu-vm
