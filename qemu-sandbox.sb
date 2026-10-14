@@ -27,9 +27,11 @@
 ;; --------------------------------------------------------
 ;; 2. Network Restraints
 ;; --------------------------------------------------------
-;; Only allow binding to localhost port 2222
-(allow network-bind (local ip "localhost:2222"))
-(allow network-inbound (local ip "localhost:2222"))
+;; The only socket qemu may own is the hostfwd ssh listener on 127.0.0.1:2222.
+;; No network-outbound at all.
+;; Note: a (remote ip ...) filter on network-bind matches everything; never use it.
+(allow network-bind (local tcp "localhost:2222"))
+(allow network-inbound (local tcp "localhost:2222"))
 
 
 ;; --------------------------------------------------------
@@ -48,15 +50,15 @@
 
 ;; VM disks
 (allow file-read* 
-    (subpath "/Users/luke/Documents/activeProjects/localAgents/agentSandbox/disks")
+    (subpath "/Users/luke/Documents/activeProjects/claudeSandbox/agentSandbox/disks")
     )
 
 (allow file-write* 
-    (literal "/Users/luke/Documents/activeProjects/localAgents/agentSandbox/disks/state_disk.qcow2"))
+    (literal "/Users/luke/Documents/activeProjects/claudeSandbox/agentSandbox/disks/state_disk.qcow2"))
 
 ;; Temp dir for qemu snapshot=on overlay (start_vm.sh sets TMPDIR to this)
 (allow file-read* file-write*
-    (subpath "/Users/luke/Documents/activeProjects/localAgents/agentSandbox/disks/tmp"))
+    (subpath "/Users/luke/Documents/activeProjects/claudeSandbox/agentSandbox/disks/tmp"))
 
 
 ;; dyld aborts without read of the root directory itself (found by bisecting)

@@ -24,7 +24,7 @@ exec sandbox-exec -f qemu-sandbox.sb qemu-system-aarch64 \
   -bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd \
   -drive file=disks/os_base.qcow2,format=qcow2,if=virtio,snapshot=on \
   -drive file=disks/state_disk.qcow2,format=qcow2,if=virtio \
-  -netdev user,id=net0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22\
+  -netdev user,id=net0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22 \
   -device virtio-net-pci,netdev=net0 \
   -display none -monitor none -serial none\
   -daemonize

@@ -3,3 +3,4 @@ agentSandbox/disks/
 agentSandbox/keys/
 agentSandbox/cidata/
 *.iso
+keys

@@ -1,5 +1,5 @@
 #cloud-config
-# The SSH key placeholders below are filled in by install_os.sh from local .pub files.
+# The SSH key placeholders below are filled in by install_os.sh from files in keys/.
 autoinstall:
   version: 1
   # No "identity" section: both accounts are defined below via user-data.
@@ -34,6 +34,16 @@ autoinstall:
   user-data:
     hostname: ubuntu-vm
     ssh_pwauth: false
+    # Pinned host key (keys/vmhostkey), so host-side ssh can use
+    # StrictHostKeyChecking. Only ed25519; no other host keys are generated.
+    # (genkeytypes only fills in missing types, and ed25519 is supplied here; the
+    # autoinstall schema rejects an empty list.)
+    ssh_deletekeys: true
+    ssh_genkeytypes: [ed25519]
+    ssh_keys:
+      ed25519_public: __VM_HOST_PUBKEY__
+      ed25519_private: |
+__VM_HOST_PRIVKEY__
     users:
       # Admin account: key-only login, passwordless sudo
       - name: vm_admin
@@ -49,7 +59,24 @@ autoinstall:
         sudo: false
         ssh_authorized_keys:
           - __BOT_SSH_KEY__
+    write_files:
+      - path: /etc/ssh/sshd_config.d/10-agent.conf
+        owner: root:root
+        permissions: '0644'
+        content: |
+          HostKey /etc/ssh/ssh_host_ed25519_key
+          AllowUsers vm_admin bot
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+
+          # Agent account: shell only, no forwarding of any kind
+          Match User bot
+            DisableForwarding yes
+            PermitTunnel no
+            PermitUserRC no
     runcmd:
+      # sshd policy (first: the disk script below uses set -e/exit).
+      - systemctl try-reload-or-restart ssh.service
       # Format /dev/vdb only if blank; abort if it holds a non-ext4 filesystem.
       # Single script so set -e stops the mount steps too.
       - |
