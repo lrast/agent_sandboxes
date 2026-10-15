@@ -4,7 +4,8 @@ This is the master copy. Setup should follow from this version to avoid corrupt 
 
 ## This is a looser sandboxing for less experimental agents
 
-Security posture: prevent data exfiltration, but don't be overly restrictive on web access
+Security posture: prevent data exfiltration, but don't be overly restrictive on web access.
+Intended for use by coding agents
 
 
 ## Workflow - target:
@@ -36,3 +37,7 @@ The Zed agent is a custom `agent_servers` entry in `~/.config/zed/settings.json`
 On first install it runs `claude setup-token` (browser login) and asks you to paste the token; it is cached in `keys/claude_oauth_token`.
 Delete that file to log in again (e.g. when the token expires after ~1 year).
 The token is in plain text in `disks/os_base.qcow2`: anyone who can read the disk image can use the account.
+
+## Improvments:
+
+Crank down permissions for the network access (e.g. local servers) and sftp server
