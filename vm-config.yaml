@@ -73,27 +73,6 @@ __VM_HOST_PRIVKEY__
             DisableForwarding yes
             PermitTunnel no
             PermitUserRC no
-      # Egress firewall: internet only. The host's qemu-sandbox.sb already denies
-      # the Mac itself (10.0.2.2 -> host loopback, and the Mac's LAN address); this
-      # also denies other LAN / private hosts, which seatbelt can't express. Root-owned,
-      # so it holds as long as bot stays unprivileged. IPv6 is off in start_vm.sh.
-      - path: /etc/nftables.conf
-        owner: root:root
-        permissions: '0644'
-        content: |
-          #!/usr/sbin/nft -f
-          flush ruleset
-          table inet egress {
-            chain output {
-              type filter hook output priority 0; policy accept;
-              oif "lo" accept
-              # slirp's built-in DNS and DHCP (served inside qemu, not by the host)
-              ip daddr 10.0.2.3 meta l4proto { tcp, udp } th dport 53 accept
-              ip daddr { 10.0.2.2, 255.255.255.255 } udp dport 67 accept
-              ip daddr { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/3 } counter reject
-              meta nfproto ipv6 counter reject
-            }
-          }
     runcmd:
       - systemctl enable --now nftables.service
       - systemctl try-reload-or-restart ssh.service

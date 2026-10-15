@@ -32,21 +32,9 @@
 (allow network-bind (local tcp "localhost:2222"))
 (allow network-inbound (local tcp "localhost:2222"))
 
-;; Guest egress (restrict=off in start_vm.sh): slirp makes every guest connection
-;; from inside the qemu process, so these rules see all of them. Internet: allowed.
-;; This Mac: denied. "localhost" also matches the Mac's own LAN address (tested), so
-;; this blocks host services bound to 0.0.0.0 as well as 127.0.0.1 / ::1 (which the
-;; guest reaches as 10.0.2.2). Other LAN hosts can't be expressed here (seatbelt only
-;; accepts * or localhost); the guest firewall (vm-config.yaml, nftables) blocks them.
-;; Slirp DNS (guest 10.0.2.3) is forwarded to the nameserver in /etc/resolv.conf: if
-;; that is ever 127.0.0.1 (some VPNs), guest DNS breaks rather than leaks.
 (allow network-outbound (remote ip "*:*"))
-(deny network-outbound (remote ip "localhost:*"))
-;; UDP replies (guest DNS via slirp) are checked as network-inbound: without this,
-;; sendto on slirp's unbound UDP sockets fails with EPERM and guest DNS is dead.
-;; Binding stays limited to tcp 2222 above, so qemu still can't open a UDP listener.
-;; (ICMP replies are inbound too and stay blocked: guest ping fails, by design.)
 (allow network-inbound (local udp "*:*"))
+
 
 
 ;; --------------------------------------------------------

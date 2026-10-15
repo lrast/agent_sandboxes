@@ -12,4 +12,3 @@ Used tcpdump (as admin) to examine all traffic over the wire. Do requests in the
 ## Sandboxing
 
 MacOS's `sandbox-exec` gives fine-grained privilege controls. It is depricated, but still seems heavily used.
-
