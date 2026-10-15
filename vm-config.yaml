@@ -11,25 +11,24 @@ autoinstall:
     - python3
     - python3-pip
     - python3-venv
+    - nftables
   # Runs at install time in the installer environment; /target is the new system.
   # uv is downloaded by the installer's curl straight into the target's /usr/local/bin.
   late-commands:
     - curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/target/usr/local/bin UV_NO_MODIFY_PATH=1 sh
-    # Lines starting with "#@agent#" are only kept when install_os.sh is run with
-    # --claude / --hermes (marker stripped); otherwise they are deleted.
-    # Agent installer (URL injected by install_os.sh).
+    # Claude Code installer (URL injected by install_os.sh).
     # Downloaded in the installer, then run inside the target chroot as root with
     # HOME=/opt/agent so it lands in a system-wide location (the bot user doesn't
     # exist yet; cloud-init creates it on first boot).
-#@agent#    - mkdir -p /target/opt/agent
-#@agent#    - curl -fsSL '__AGENT_INSTALL_URL__' -o /target/tmp/agent-install.sh
-#@agent#    - curtin in-target --target=/target -- env HOME=/opt/agent bash -c 'umask 022 && bash /tmp/agent-install.sh'
-#@agent#    - rm -f /target/tmp/agent-install.sh
-#@agent#    - chmod -R a+rX /target/opt/agent
-#@agent#    - |
-#@agent#      cat > /target/etc/profile.d/agent.sh <<'PROFILE'
-#@agent#      export PATH="/opt/agent/.local/bin:/opt/agent/bin:$PATH"
-#@agent#      PROFILE
+    - mkdir -p /target/opt/agent
+    - curl -fsSL '__AGENT_INSTALL_URL__' -o /target/tmp/agent-install.sh
+    - curtin in-target --target=/target -- env HOME=/opt/agent bash -c 'umask 022 && bash /tmp/agent-install.sh'
+    - rm -f /target/tmp/agent-install.sh
+    - chmod -R a+rX /target/opt/agent
+    - |
+      cat > /target/etc/profile.d/agent.sh <<'PROFILE'
+      export PATH="/opt/agent/.local/bin:/opt/agent/bin:$PATH"
+      PROFILE
   # This block gets passed to the final OS and runs on its VERY FIRST boot
   user-data:
     hostname: ubuntu-vm
@@ -74,22 +73,27 @@ __VM_HOST_PRIVKEY__
             DisableForwarding yes
             PermitTunnel no
             PermitUserRC no
+      # Egress firewall: internet only. The host's qemu-sandbox.sb already denies
+      # the Mac itself (10.0.2.2 -> host loopback, and the Mac's LAN address); this
+      # also denies other LAN / private hosts, which seatbelt can't express. Root-owned,
+      # so it holds as long as bot stays unprivileged. IPv6 is off in start_vm.sh.
+      - path: /etc/nftables.conf
+        owner: root:root
+        permissions: '0644'
+        content: |
+          #!/usr/sbin/nft -f
+          flush ruleset
+          table inet egress {
+            chain output {
+              type filter hook output priority 0; policy accept;
+              oif "lo" accept
+              # slirp's built-in DNS and DHCP (served inside qemu, not by the host)
+              ip daddr 10.0.2.3 meta l4proto { tcp, udp } th dport 53 accept
+              ip daddr { 10.0.2.2, 255.255.255.255 } udp dport 67 accept
+              ip daddr { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/3 } counter reject
+              meta nfproto ipv6 counter reject
+            }
+          }
     runcmd:
-      # sshd policy (first: the disk script below uses set -e/exit).
+      - systemctl enable --now nftables.service
       - systemctl try-reload-or-restart ssh.service
-      # Format /dev/vdb only if blank; abort if it holds a non-ext4 filesystem.
-      # Single script so set -e stops the mount steps too.
-      - |
-        set -e
-        fstype=$(blkid -o value -s TYPE /dev/vdb 2>/dev/null || true)
-        if [ -z "$fstype" ]; then
-          mkfs.ext4 /dev/vdb
-        elif [ "$fstype" != "ext4" ]; then
-          echo "ERROR: /dev/vdb has unexpected filesystem '$fstype'; refusing to continue" >&2
-          exit 1
-        fi
-        mkdir -p /home/bot/state
-        # remove noexec if the agent needs to run things off the state disk
-        echo '/dev/vdb /home/bot/state ext4 defaults,nosuid,nodev,noexec 0 2' >> /etc/fstab
-        mount -a
-        chown -R bot:bot /home/bot/state

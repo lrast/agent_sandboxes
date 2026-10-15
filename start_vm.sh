@@ -14,6 +14,8 @@ if ! pgrep -qf qemu-system-aarch64; then
   rm -f "$TMPDIR"/vl.* "$TMPDIR"/memfd-*
 fi
 
+# Guest has internet access (restrict=off); qemu-sandbox.sb denies connections to
+# this Mac, and the guest's nftables firewall denies the LAN.
 exec sandbox-exec -f qemu-sandbox.sb qemu-system-aarch64 \
   -nodefaults -no-user-config \
   -accel hvf \
@@ -23,8 +25,7 @@ exec sandbox-exec -f qemu-sandbox.sb qemu-system-aarch64 \
   -M virt \
   -bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd \
   -drive file=disks/os_base.qcow2,format=qcow2,if=virtio,snapshot=on \
-  -drive file=disks/state_disk.qcow2,format=qcow2,if=virtio \
-  -netdev user,id=net0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22 \
+  -netdev user,id=net0,restrict=off,ipv6=off,hostfwd=tcp:127.0.0.1:2222-:22 \
   -device virtio-net-pci,netdev=net0 \
   -display none -monitor none -serial none\
   -daemonize

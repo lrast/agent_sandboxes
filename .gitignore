@@ -1,6 +1,5 @@
 .DS_Store
-agentSandbox/disks/
-agentSandbox/keys/
-agentSandbox/cidata/
+disks/
+cidata/
 *.iso
 keys

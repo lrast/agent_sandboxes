@@ -27,11 +27,26 @@
 ;; --------------------------------------------------------
 ;; 2. Network Restraints
 ;; --------------------------------------------------------
-;; The only socket qemu may own is the hostfwd ssh listener on 127.0.0.1:2222.
-;; No network-outbound at all.
+;; The only socket qemu may listen on is the hostfwd ssh listener on 127.0.0.1:2222.
 ;; Note: a (remote ip ...) filter on network-bind matches everything; never use it.
 (allow network-bind (local tcp "localhost:2222"))
 (allow network-inbound (local tcp "localhost:2222"))
+
+;; Guest egress (restrict=off in start_vm.sh): slirp makes every guest connection
+;; from inside the qemu process, so these rules see all of them. Internet: allowed.
+;; This Mac: denied. "localhost" also matches the Mac's own LAN address (tested), so
+;; this blocks host services bound to 0.0.0.0 as well as 127.0.0.1 / ::1 (which the
+;; guest reaches as 10.0.2.2). Other LAN hosts can't be expressed here (seatbelt only
+;; accepts * or localhost); the guest firewall (vm-config.yaml, nftables) blocks them.
+;; Slirp DNS (guest 10.0.2.3) is forwarded to the nameserver in /etc/resolv.conf: if
+;; that is ever 127.0.0.1 (some VPNs), guest DNS breaks rather than leaks.
+(allow network-outbound (remote ip "*:*"))
+(deny network-outbound (remote ip "localhost:*"))
+;; UDP replies (guest DNS via slirp) are checked as network-inbound: without this,
+;; sendto on slirp's unbound UDP sockets fails with EPERM and guest DNS is dead.
+;; Binding stays limited to tcp 2222 above, so qemu still can't open a UDP listener.
+;; (ICMP replies are inbound too and stay blocked: guest ping fails, by design.)
+(allow network-inbound (local udp "*:*"))
 
 
 ;; --------------------------------------------------------
@@ -48,17 +63,14 @@
 (deny file-read* (subpath "/Volumes"))
 (deny file-read* (subpath "/private/db"))
 
-;; VM disks
-(allow file-read* 
-    (subpath "/Users/luke/Documents/activeProjects/claudeSandbox/agentSandbox/disks")
+;; VM disks (os_base.qcow2 is opened with snapshot=on, so only read access is needed)
+(allow file-read*
+    (subpath "/Users/luke/Documents/activeProjects/claudeSandbox/disks")
     )
-
-(allow file-write* 
-    (literal "/Users/luke/Documents/activeProjects/claudeSandbox/agentSandbox/disks/state_disk.qcow2"))
 
 ;; Temp dir for qemu snapshot=on overlay (start_vm.sh sets TMPDIR to this)
 (allow file-read* file-write*
-    (subpath "/Users/luke/Documents/activeProjects/claudeSandbox/agentSandbox/disks/tmp"))
+    (subpath "/Users/luke/Documents/activeProjects/claudeSandbox/disks/tmp"))
 
 
 ;; dyld aborts without read of the root directory itself (found by bisecting)
@@ -88,6 +100,19 @@
     (literal "/private/etc/hosts")
     (literal "/private/etc/passwd")
     (literal "/private/etc/services"))
+
+;; Slirp's DNS proxy (guest 10.0.2.3) reads the host nameserver from /etc/resolv.conf,
+;; a symlink chain (/etc -> /private/etc, resolv.conf -> ../var/run/resolv.conf).
+;; Following it needs the real file plus metadata on each directory (tested); without
+;; these, guest DNS via 10.0.2.3 silently times out.
+(allow file-read* (literal "/private/var/run/resolv.conf"))
+(allow file-read-metadata
+    (literal "/etc")
+    (literal "/private")
+    (literal "/private/etc")
+    (literal "/var")
+    (literal "/private/var")
+    (literal "/private/var/run"))
 
 ;; QEMU binary, Homebrew dylibs, firmware
 (allow file-read*
