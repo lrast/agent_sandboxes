@@ -1,5 +1,5 @@
 #cloud-config
-# The SSH key placeholders below are filled in by install_os.sh from files in keys/.
+# The SSH key and Claude token placeholders below are filled in by install_os.sh from files in keys/.
 autoinstall:
   version: 1
   # No "identity" section: both accounts are defined below via user-data.
@@ -61,7 +61,8 @@ __VM_HOST_PRIVKEY__
     write_files:
       - path: /etc/ssh/sshd_config.d/10-agent.conf
         owner: root:root
-        permissions: '0644'
+        # 0600: holds the bot's Claude OAuth token (sshd reads it as root)
+        permissions: '0600'
         content: |
           HostKey /etc/ssh/ssh_host_ed25519_key
           AllowUsers vm_admin bot
@@ -73,6 +74,16 @@ __VM_HOST_PRIVKEY__
             DisableForwarding yes
             PermitTunnel no
             PermitUserRC no
+            # Claude Code login for every bot ssh session (interactive or command)
+            SetEnv CLAUDE_CODE_OAUTH_TOKEN=__CLAUDE_OAUTH_TOKEN__
+      # Skip Claude Code's first-run onboarding (the snapshot would reset it every boot).
+      # defer: written after the bot user exists.
+      - path: /home/bot/.claude.json
+        owner: bot:bot
+        permissions: '0600'
+        defer: true
+        content: |
+          {"hasCompletedOnboarding": true}
     runcmd:
       - systemctl enable --now nftables.service
       - systemctl try-reload-or-restart ssh.service

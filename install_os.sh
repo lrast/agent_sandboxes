@@ -34,8 +34,25 @@ VM_HOST_PUBKEY=$(head -n 1 "$VM_HOST_KEY_FILE.pub")
 grep -q "BEGIN OPENSSH PRIVATE KEY" "$VM_HOST_KEY_FILE" || {
   echo "ERROR: $VM_HOST_KEY_FILE is not an unencrypted OpenSSH private key" >&2; exit 1; }
 
+# Long-lived Claude Code OAuth token (claude setup-token, ~1 year), baked into the
+# image so the bot is logged in on every boot. A normal /login would not survive:
+# its refresh token rotates, and snapshot=on discards the rotated one.
+# Cached in keys/; delete the file to log in again.
+CLAUDE_TOKEN_FILE="${CLAUDE_TOKEN_FILE:-keys/claude_oauth_token}"
+if [ ! -s "$CLAUDE_TOKEN_FILE" ]; then
+  echo "==> Logging in to Claude Code (claude setup-token)..."
+  claude setup-token
+  read -rsp "Paste the token printed above: " CLAUDE_TOKEN; echo
+  (umask 077; printf '%s\n' "$CLAUDE_TOKEN" > "$CLAUDE_TOKEN_FILE")
+fi
+CLAUDE_TOKEN=$(head -n 1 "$CLAUDE_TOKEN_FILE")
+# Format check; also keeps the sed substitution below safe.
+[[ "$CLAUDE_TOKEN" =~ ^sk-ant-oat[0-9]+-[A-Za-z0-9_-]+$ ]] || {
+  echo "ERROR: $CLAUDE_TOKEN_FILE does not contain a valid Claude OAuth token" >&2; exit 1; }
+
 # The user-data (#cloud-config) lives in vm-config.yaml; inject the keys
 sed -e "s|__ADMIN_SSH_KEY__|${ADMIN_KEY}|" \
+    -e "s|__CLAUDE_OAUTH_TOKEN__|${CLAUDE_TOKEN}|" \
     -e "s|__BOT_SSH_KEY__|${BOT_KEY}|" \
     -e "s|__VM_HOST_PUBKEY__|${VM_HOST_PUBKEY}|" \
     -e "s#__AGENT_INSTALL_URL__#${CLAUDE_INSTALL_URL}#" \
