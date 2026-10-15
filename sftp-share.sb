@@ -1,0 +1,55 @@
+(version 1)
+(deny default)
+
+;; Sandbox for the host-side sftp-server behind one mount-in-vm share.
+;; Usage: sandbox-exec -f sftp-share.sb -D SHARE=/abs/dir /usr/libexec/sftp-server -d /abs/dir
+;; SHARE must be an absolute path with symlinks resolved (mount-in-vm uses realpath).
+
+;; --------------------------------------------------------
+;; 1. Execution
+;; --------------------------------------------------------
+;; Only sftp-server may be exec'd. No fork: sftp-server is single-process.
+(allow process-exec (literal "/usr/libexec/sftp-server"))
+
+;; getpwuid() at startup (sftp-server exits without it) and uid/gid -> name in listings;
+;; logd is needed too (exits without it)
+(allow mach-lookup
+    (global-name "com.apple.system.opendirectoryd.libinfo")
+    (global-name "com.apple.logd"))
+
+;; --------------------------------------------------------
+;; 2. Network: none
+;; --------------------------------------------------------
+;; (covered by deny default; the SFTP stream is stdin/stdout, which is not network)
+
+;; --------------------------------------------------------
+;; 3. File System
+;; --------------------------------------------------------
+;; The share itself: full read/write
+(allow file-read* file-write* (subpath (param "SHARE")))
+
+;; ...except files that run code on the host the next time you use the project
+;; (git hooks, git config's core.fsmonitor/core.hooksPath/aliases, Zed tasks/settings).
+;; .git itself and .git/modules are included so they can't be renamed away, edited, and moved back.
+;; Consequence: in the VM, `git init`, `git config` and commits inside submodules fail; do those on the host.
+(deny file-write*
+    (require-all
+        (subpath (param "SHARE"))
+        (regex #"/\.git(/modules(/.+)?)?(/hooks(/|$)|/config(\.lock)?$|$)")))
+(deny file-write*
+    (require-all
+        (subpath (param "SHARE"))
+        (regex #"/\.zed(/|$)")))
+
+;; dyld aborts without read of the root directory itself
+(allow file-read* (literal "/"))
+
+;; Everything else needed, found by pruning (tested with sftp -D). System libraries
+;; need no rules: they come from the dyld shared cache, which is already mapped.
+;; Leaving them out also keeps the guest from reading /usr/lib and /System through SFTP.
+(allow file-read*
+    (literal "/usr/libexec/sftp-server")
+    (literal "/dev/null")
+    (literal "/dev/random"))
+
+(allow file-write* (literal "/dev/null"))

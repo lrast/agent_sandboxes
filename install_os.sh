@@ -33,6 +33,8 @@ VM_HOST_KEY_FILE="${VM_HOST_KEY_FILE:-keys/vmhostkey}"
 VM_HOST_PUBKEY=$(head -n 1 "$VM_HOST_KEY_FILE.pub")
 grep -q "BEGIN OPENSSH PRIVATE KEY" "$VM_HOST_KEY_FILE" || {
   echo "ERROR: $VM_HOST_KEY_FILE is not an unencrypted OpenSSH private key" >&2; exit 1; }
+# Pin it for host-side ssh (mount-in-vm, Zed agent): StrictHostKeyChecking=yes
+printf '[localhost]:2222 %s\n' "$(cut -d' ' -f1,2 "$VM_HOST_KEY_FILE.pub")" > keys/known_hosts
 
 # Long-lived Claude Code OAuth token (claude setup-token, ~1 year), baked into the
 # image so the bot is logged in on every boot. A normal /login would not survive:
