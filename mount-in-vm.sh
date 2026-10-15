@@ -107,7 +107,7 @@ mount_dir() {
   "${SSH[@]}" true 2>/dev/null || die "can't ssh to the VM (is it running? start_vm.sh)"
 
   printf '%s\n' "$dir" > "$RUN/$key.dir"
-  nohup "$REPO/mount-in-vm" --_pipeline "$dir" "$key" < /dev/null >> "$RUN/$key.log" 2>&1 &
+  nohup "$REPO/mount-in-vm.sh" --_pipeline "$dir" "$key" < /dev/null >> "$RUN/$key.log" 2>&1 &
   echo $! > "$RUN/$key.pid"
 
   # Wait for the guest side to come up

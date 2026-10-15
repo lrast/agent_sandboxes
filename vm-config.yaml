@@ -20,6 +20,7 @@ autoinstall:
   # Runs at install time in the installer environment; /target is the new system.
   # uv is downloaded by the installer's curl straight into the target's /usr/local/bin.
   late-commands:
+    # uv installer
     - curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/target/usr/local/bin UV_NO_MODIFY_PATH=1 sh
     # Claude Code installer (URL injected by install_os.sh).
     # Downloaded in the installer, then run inside the target chroot as root with
@@ -38,6 +39,11 @@ autoinstall:
     # /opt/agent/acp/bin/claude-agent-acp
     - curtin in-target --target=/target -- bash -c 'umask 022 && npm install -g --prefix /opt/agent/acp @agentclientprotocol/claude-agent-acp'
     - chmod -R a+rX /target/opt/agent/acp
+    # rtk: installed straight into the target's /opt/agent/.local/bin (already on PATH
+    # via profile.d/agent.sh above)
+    - mkdir -p /target/opt/agent/.local/bin
+    - curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | RTK_INSTALL_DIR=/target/opt/agent/.local/bin sh
+    - chmod -R a+rX /target/opt/agent/.local
   # This block gets passed to the final OS and runs on its VERY FIRST boot
   user-data:
     hostname: ubuntu-vm

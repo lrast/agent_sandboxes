@@ -1,4 +1,5 @@
 (version 1)
+;; SCRIPT_DIR is passed by start_vm.sh via sandbox-exec -D SCRIPT_DIR=...
 (deny default)
 
 ;; --------------------------------------------------------
@@ -53,12 +54,12 @@
 
 ;; VM disks (os_base.qcow2 is opened with snapshot=on, so only read access is needed)
 (allow file-read*
-    (subpath "/Users/luke/Documents/activeProjects/claudeSandbox/disks")
+    (subpath (string-append (param "SCRIPT_DIR") "/disks"))
     )
 
 ;; Temp dir for qemu snapshot=on overlay (start_vm.sh sets TMPDIR to this)
 (allow file-read* file-write*
-    (subpath "/Users/luke/Documents/activeProjects/claudeSandbox/disks/tmp"))
+    (subpath (string-append (param "SCRIPT_DIR") "/disks/tmp")))
 
 
 ;; dyld aborts without read of the root directory itself (found by bisecting)

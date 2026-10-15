@@ -2,8 +2,11 @@
 # Fail fast: never start the VM if setup steps (TMPDIR, cleanup) failed.
 set -euo pipefail
 
+# Resolve the real script location so a symlinked copy works from any directory
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
 # qemu puts the snapshot=on overlay in $TMPDIR; keep it inside the sandbox-allowed disks/tmp
-export TMPDIR="$(pwd)/disks/tmp"
+export TMPDIR="$SCRIPT_DIR/disks/tmp"
 mkdir -p "$TMPDIR"
 
 # Precaution: remove stale qemu temp files (snapshot overlays vl.* and guest-RAM
@@ -16,7 +19,7 @@ fi
 
 # Guest has internet access (restrict=off); qemu-sandbox.sb denies connections to
 # this Mac, and the guest's nftables firewall denies the LAN.
-exec sandbox-exec -f qemu-sandbox.sb qemu-system-aarch64 \
+exec sandbox-exec -D SCRIPT_DIR="$SCRIPT_DIR" -f "$SCRIPT_DIR/qemu-sandbox.sb" qemu-system-aarch64 \
   -nodefaults -no-user-config \
   -accel hvf \
   -cpu host \
@@ -24,7 +27,7 @@ exec sandbox-exec -f qemu-sandbox.sb qemu-system-aarch64 \
   -smp 4 \
   -M virt \
   -bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd \
-  -drive file=disks/os_base.qcow2,format=qcow2,if=virtio,snapshot=on \
+  -drive file=$SCRIPT_DIR/disks/os_base.qcow2,format=qcow2,if=virtio,snapshot=on \
   -netdev user,id=net0,restrict=off,ipv6=off,hostfwd=tcp:127.0.0.1:2222-:22 \
   -device virtio-net-pci,netdev=net0 \
   -display none -monitor none -serial none\
