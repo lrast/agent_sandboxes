@@ -1,9 +1,7 @@
 #!/bin/bash
 set -e
 
-# 1. Agent installer arguments
-CLAUDE_INSTALL_URL="https://claude.ai/install.sh"
-
+# package URLs live at the top of vm-scripts/late-commands.sh)
 if [ "$#" -ne 0 ]; then
   echo "Usage: $0   (Claude Code is always installed)" >&2
   exit 1
@@ -52,16 +50,32 @@ CLAUDE_TOKEN=$(head -n 1 "$CLAUDE_TOKEN_FILE")
 [[ "$CLAUDE_TOKEN" =~ ^sk-ant-oat[0-9]+-[A-Za-z0-9_-]+$ ]] || {
   echo "ERROR: $CLAUDE_TOKEN_FILE does not contain a valid Claude OAuth token" >&2; exit 1; }
 
+# Multi-line files inlined into user-data by the awk step below
+LATE_COMMANDS_FILE=vm-scripts/late-commands.sh
+FIRST_BOOT_FILE=vm-scripts/first-boot.sh
+for f in "$LATE_COMMANDS_FILE" "$FIRST_BOOT_FILE"; do
+  [ -r "$f" ] || { echo "ERROR: cannot read $f" >&2; exit 1; }
+done
+
 # The user-data (#cloud-config) lives in vm-config.yaml; inject the keys
 sed -e "s|__ADMIN_SSH_KEY__|${ADMIN_KEY}|" \
     -e "s|__CLAUDE_OAUTH_TOKEN__|${CLAUDE_TOKEN}|" \
     -e "s|__BOT_SSH_KEY__|${BOT_KEY}|" \
     -e "s|__VM_HOST_PUBKEY__|${VM_HOST_PUBKEY}|" \
-    -e "s#__AGENT_INSTALL_URL__#${CLAUDE_INSTALL_URL}#" \
     vm-config.yaml |
-  # The private host key is multi-line: indent it into the "ed25519_private: |" block.
-  awk -v keyfile="$VM_HOST_KEY_FILE" '
-    $0 == "__VM_HOST_PRIVKEY__" { while ((getline l < keyfile) > 0) print "        " l; next }
+  # Multi-line values: a line holding only a placeholder is replaced by the file,
+  # each line given the placeholder's indent, so it lands inside its YAML "|" block.
+  awk -v keyfile="$VM_HOST_KEY_FILE" \
+      -v late="$LATE_COMMANDS_FILE" \
+      -v boot="$FIRST_BOOT_FILE" '
+    function inline(file,   indent, l) {
+      indent = $0; sub(/[^ ].*/, "", indent)
+      while ((getline l < file) > 0) print (l == "" ? "" : indent l)
+      close(file)
+    }
+    NF == 1 && $1 == "__VM_HOST_PRIVKEY__"  { inline(keyfile); next }
+    NF == 1 && $1 == "__LATE_COMMANDS_SH__" { inline(late);    next }
+    NF == 1 && $1 == "__FIRST_BOOT_SH__"    { inline(boot);    next }
     { print }' > cidata/user-data
 chmod 600 cidata/user-data
 

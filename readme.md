@@ -31,13 +31,17 @@ Logs: `disks/run/*.log`. Sandbox denials: `log show --last 5m --predicate 'sende
 
 The Zed agent is a custom `agent_servers` entry in `~/.config/zed/settings.json`: `ssh -i keys/vmkey … bot@localhost /opt/agent/acp/bin/claude-agent-acp`, with `keys/known_hosts` pinning the VM host key (written by `install_os.sh`).
 
-## Claude Code login
+## Install
+
+Guest-side setup scripts live in `vm-scripts/`: `late-commands.sh` (install time, in the installer) and `first-boot.sh` (first boot, as root). `install_os.sh` inlines them into the cloud-init user-data built from `vm-config.yaml` (`__LATE_COMMANDS_SH__`, `__FIRST_BOOT_SH__` placeholders).
+
+### Claude Code login
 
 `install_os.sh` bakes a long-lived Claude Code token into the image, so the bot is logged in on every boot.
 On first install it runs `claude setup-token` (browser login) and asks you to paste the token; it is cached in `keys/claude_oauth_token`.
 Delete that file to log in again (e.g. when the token expires after ~1 year).
 The token is in plain text in `disks/os_base.qcow2`: anyone who can read the disk image can use the account.
 
-## Improvments:
+## Improvements:
 
 Crank down permissions for the network access (e.g. local servers) and sftp server

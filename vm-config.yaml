@@ -18,32 +18,16 @@ autoinstall:
     - nodejs
     - npm
   # Runs at install time in the installer environment; /target is the new system.
-  # uv is downloaded by the installer's curl straight into the target's /usr/local/bin.
+  # The script body is vm-scripts/late-commands.sh, inlined by install_os.sh
+  # (__LATE_COMMANDS_SH__).
   late-commands:
-    # uv installer
-    - curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/target/usr/local/bin UV_NO_MODIFY_PATH=1 sh
-    # Claude Code installer (URL injected by install_os.sh).
-    # Downloaded in the installer, then run inside the target chroot as root with
-    # HOME=/opt/agent so it lands in a system-wide location (the bot user doesn't
-    # exist yet; cloud-init creates it on first boot).
-    - mkdir -p /target/opt/agent
-    - curl -fsSL '__AGENT_INSTALL_URL__' -o /target/tmp/agent-install.sh
-    - curtin in-target --target=/target -- env HOME=/opt/agent bash -c 'umask 022 && bash /tmp/agent-install.sh'
-    - rm -f /target/tmp/agent-install.sh
-    - chmod -R a+rX /target/opt/agent
     - |
-      cat > /target/etc/profile.d/agent.sh <<'PROFILE'
-      export PATH="/opt/agent/.local/bin:/opt/agent/bin:$PATH"
-      PROFILE
-    # ACP adapter for Zed's "Claude (VM)" agent (run over ssh as bot):
-    # /opt/agent/acp/bin/claude-agent-acp
-    - curtin in-target --target=/target -- bash -c 'umask 022 && npm install -g --prefix /opt/agent/acp @agentclientprotocol/claude-agent-acp'
-    - chmod -R a+rX /target/opt/agent/acp
-    # rtk: installed straight into the target's /opt/agent/.local/bin (already on PATH
-    # via profile.d/agent.sh above)
-    - mkdir -p /target/opt/agent/.local/bin
-    - curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | RTK_INSTALL_DIR=/target/opt/agent/.local/bin sh
-    - chmod -R a+rX /target/opt/agent/.local
+      cat > /target/tmp/late-commands.sh <<'__END_SCRIPT__'
+      __LATE_COMMANDS_SH__
+      __END_SCRIPT__
+    - bash /target/tmp/late-commands.sh
+    - rm -f /target/tmp/late-commands.sh
+
   # This block gets passed to the final OS and runs on its VERY FIRST boot
   user-data:
     hostname: ubuntu-vm
@@ -57,7 +41,7 @@ autoinstall:
     ssh_keys:
       ed25519_public: __VM_HOST_PUBKEY__
       ed25519_private: |
-__VM_HOST_PRIVKEY__
+        __VM_HOST_PRIVKEY__
     users:
       # Admin account: key-only login, passwordless sudo
       - name: vm_admin
@@ -106,6 +90,11 @@ __VM_HOST_PRIVKEY__
         permissions: '0644'
         content: |
           user_allow_other
+      # First-boot setup (vm-scripts/first-boot.sh, inlined by install_os.sh)
+      - path: /var/lib/cloud/first-boot.sh
+        owner: root:root
+        permissions: '0700'
+        content: |
+          __FIRST_BOOT_SH__
     runcmd:
-      - systemctl enable --now nftables.service
-      - systemctl try-reload-or-restart ssh.service
+      - [bash, /var/lib/cloud/first-boot.sh]
